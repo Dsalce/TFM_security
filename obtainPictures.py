@@ -32,7 +32,7 @@ class ObtainPicture(object):
         if key == ord('q'):
             self.cam.release()
             cv2.destroyAllWindows()
-            exit(1)
+            #exit(1)
     
     #Load .csv file
     def obtainPicture(self):
@@ -47,17 +47,17 @@ class ObtainPicture(object):
                 break
           
             os.chdir(path)
-            os.chdir("dataset/val/infected/")
+            os.chdir("dataset/val/test/")
             img_name = "image_{}.jpg".format(img_counter)#os.path.join("\test2\train\infected","image_{}.jpg".format(img_counter))
             cv2.imwrite(img_name, frame)
             time.sleep(1)
             print("{} written!".format(img_name))
-            os.chdir(path)
+            """os.chdir(path)
             os.chdir("dataset/val/notinfected/")
             img_name = "image_{}.jpg".format(img_counter)#os.path.join("\test2\train\infected","image_{}.jpg".format(img_counter))
             cv2.imwrite(img_name, frame)
             time.sleep(1)
-            print("{} written!".format(img_name))
+            print("{} written!".format(img_name))"""
             img_counter += 1
         
         

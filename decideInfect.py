@@ -17,8 +17,10 @@ from PIL import Image
 from numpy import savez_compressed
 from numpy import asarray
 from mtcnn.mtcnn import MTCNN
-from keras.models import load_model
-
+import tensorflow as tf
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+import joblib
 
 class IdentifyPerson(object):
    def __init__(self):
@@ -111,7 +113,7 @@ class IdentifyPerson(object):
         trainX, trainy, testX, testy = data['arr_0'], data['arr_1'], data['arr_2'], data['arr_3']
         print('Loaded: ', trainX.shape, trainy.shape, testX.shape, testy.shape)
         # load the facenet model
-        model = load_model('facenet_keras.h5')
+        model = tf.keras.models.load_model('facenet_keras.h5')
         print('Loaded Model')
         # convert each face in the train set to an embedding
         newTrainX = list()
@@ -149,10 +151,13 @@ class IdentifyPerson(object):
         trainy = out_encoder.transform(trainy)
         testy = out_encoder.transform(testy)
         # fit model
-        model = SVC(kernel='linear', probability=True)
+        #model = SVC(kernel='linear', probability=True,verbose=True,)
+        model = SVC(kernel='rbf', probability=True,verbose=True)
         model.fit(trainX, trainy)
+        joblib.dump(model, 'modelInfect.sav')
         # test model on a random example from the test dataset
-        #selection = choice([i for i in range(testX.shape[0])])
+        predict=[]
+        trueFace=[]
         infect=0
         for selection in range(testX.shape[0]):
             random_face_pixels = testX_faces[selection]
@@ -167,21 +172,25 @@ class IdentifyPerson(object):
             class_index = yhat_class[0]
             class_probability = yhat_prob[0,class_index] * 100
             predict_names = out_encoder.inverse_transform(yhat_class)
+            predict.append(predict_names)
+            trueFace.append(random_face_name)
             print('Predicted: %s (%.3f)' % (predict_names[0], class_probability))
             print('Expected: %s' % random_face_name[0])
             
             # plot for fun
             pyplot.imshow(random_face_pixels)
             title = '%s (%.3f)' % (predict_names[0], class_probability)
+            
             if(predict_names[0]=="infected"):
              infect=infect+1
             pyplot.title(title)
             pyplot.show()
             
-
+        con=confusion_matrix(trueFace, predict)
+        print(con)
         if (infect==10):
            infected=True        
-
+   
         return infected
 
 
@@ -189,6 +198,6 @@ if __name__ == '__main__':
     
     person = IdentifyPerson()
     # load train dataset
-    #person.saveDataset()
+    person.saveDataset()
     person.embeddingDataset()
-    #person.identifyPerson()
+    person.identifyPerson()

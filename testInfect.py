@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Sep  6 10:22:22 2020
+Created on Fri Oct 30 12:10:40 2020
 
 @author: dsalc
 """
 
-# -*- coding: utf-8 -*-
 
 "Basado en https://machinelearningmastery.com/how-to-develop-a-face-recognition-system-using-facenet-in-keras-and-an-svm-classifier/"
 
@@ -14,7 +13,7 @@ from numpy import load
 from numpy import expand_dims
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import Normalizer
-
+from sklearn import metrics
 from matplotlib import pyplot
 import os
 import numpy
@@ -32,7 +31,7 @@ from sklearn.metrics import plot_confusion_matrix
 import itertools
 
 
-class TestInfectPerson(object):
+class TestInfect(object):
    def __init__(self):
        pass
     
@@ -62,19 +61,19 @@ class TestInfectPerson(object):
    def load_faces(self,direc):
       imagesFace = list()
       for file in listdir(direc):
-        try:
-         path =os.path.join(direc,file)
-         print(path)
-         face = self.extract_face(path)
-         imagesFace.append(face)
-        except IndexError:
+         try:
+             path =os.path.join(direc,file)
+             print(path)
+             face = self.extract_face(path)
+             imagesFace.append(face)
+         except IndexError:
              pass
       return imagesFace
      
     # Carga dataset de caras
    def saveDataset(self):
         trainX, trainy = list(), list()
-        direc='dataset/val/'
+        direc='dataset/test/'
         for subdir in listdir(direc):
                 path = direc + subdir + '/'
                 if not isdir(path):
@@ -84,7 +83,7 @@ class TestInfectPerson(object):
                 print('>Etiqueta test: %s' % (subdir))
                 trainX.extend(faces)
                 trainy.extend(lab)
-        savez_compressed('testInfect.npz', trainX)#, trainy)
+        savez_compressed('testInfectTEST.npz', trainX, trainy)
     
     
    # get the face embedding for one face
@@ -102,11 +101,11 @@ class TestInfectPerson(object):
 
    def embeddingDataset(self):
         # load the face dataset
-        data = load('testInfect.npz')
+        data = load('testInfectTEST.npz')
         print(data)
-        #testX, testy = data['arr_0'], data['arr_1']
-        testX = data['arr_0'] 
-        print('Loaded: ', testX.shape)#, testy.shape)
+        testX, testy = data['arr_0'], data['arr_1']
+   
+        print('Loaded: ', testX.shape,testy.shape)
         # load the facenet model
         model = tf.keras.models.load_model('facenet_keras.h5', compile=False)
         print('Loaded Model')
@@ -119,40 +118,46 @@ class TestInfectPerson(object):
         newTestX = asarray(newTestX)
         print(newTestX.shape)
         # save arrays to one file in compressed format
-        savez_compressed('test_Infectemp.npz',  newTestX)#, testy)
+        savez_compressed('test_InfectempTEST.npz', newTestX, testy)
    
-
+    
 
    
    def identifyPerson(self):
         infected=False
        
         #  Cargar caras
-        data = numpy.load('testInfect.npz')
+        data = numpy.load('testInfectTEST.npz')
         testXFaces = data['arr_0']
         # Cargar vectores
-        data = numpy.load('test_Infectemp.npz')
-        testX = data['arr_0'] 
+        data = numpy.load('test_InfectempTEST.npz')
+        testX, testy = data['arr_0'], data['arr_1']
+       
         model = joblib.load('modelInfect.sav') 
         # Nor malizar vctores a 0 e 1
         testXencoder = Normalizer(norm='l2')
+       
         testX = testXencoder.transform(testX)
         
         testyEncoder = LabelEncoder()
         
-        testyEncoder.fit(["infected","notinfected"])
+        testyEncoder.fit(testy)
         
-   
+        testy = testyEncoder.transform(testy)
         
         
         # test model on a random example from the test dataset
-        predict=[]
-       
+        predictMatix=[]
+        trueFace=[]
         infect=0
-       
+        scores=[]
+      
         for selection in range(testX.shape[0]):
-           # pixelsFace= testXFaces[selection]
+            pixelsFace= testXFaces[selection]
             faceEmb = testX[selection]
+            faceType = testy[selection]
+            faceLabel = testyEncoder.inverse_transform([faceType])
+            # prediccion para la cara
             predict = expand_dims(faceEmb, axis=0)
             predictClass = model.predict(predict)
             predictProb = model.predict_proba(predict)
@@ -160,22 +165,59 @@ class TestInfectPerson(object):
             index = predictClass[0]
             prob = predictProb[0,index] * 100
             predictLabel = testyEncoder.inverse_transform(predictClass)
+            scores.append(prob)
+            predictMatix.append(predictLabel)
             
-          
-    
+            trueFace.append(faceLabel)
             print('Predicted: %s (%.3f)' % (predictLabel[0], prob))
+            print('Expected: %s' % faceLabel[0])
             
-            
-            #pyplot.imshow(pixelsFace)
-            #title = '%s (%.3f)' % (predictLabel[0], prob)
+            pyplot.imshow(pixelsFace)
+            title = '%s (%.3f)' % (predictLabel[0], prob)
             
             if(predictLabel[0]=="infected"):
              infect=infect+1
-            #pyplot.title(title)
-            #pyplot.show()
+            pyplot.title(title)
+            pyplot.show()
             
-  
-        if (infect==5):
+            
+            
+        #Matriz de confusión
+        con=confusion_matrix(trueFace, predictMatix)
+        print(con)
+        titles_options = [("Confusion matrix", None)]
+        for title, normalize in titles_options:
+                disp = plot_confusion_matrix(model, testX, testy, display_labels=["infected","notinfected"], cmap=pyplot.cm.Blues,normalize=normalize)
+                disp.ax_.set_title(title)
+                
+                print(title)
+                print(disp.confusion_matrix)
+                
+               
+                
+
+                
+               
+        auc= metrics.roc_auc_score(testy, scores)
+        
+        print("El AUC es de:",auc)
+        
+        #Genera ROC
+        fpr, tpr, thresholds = metrics.roc_curve(testy, scores)
+        
+        pyplot.figure()
+        lw = 2
+        pyplot.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve  (AUC = %0.2f)' % auc)
+        pyplot.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+        pyplot.xlim([-0.001, 1.0])
+        pyplot.ylim([-0.001, 1.05])
+        pyplot.xlabel('False Positive Rate')
+        pyplot.ylabel('True Positive Rate')
+        pyplot.title('ROC/AUC')
+        pyplot.legend(loc="lower right")
+        pyplot.show()
+
+        if (infect==10):
            infected=True        
    
         return infected
@@ -183,8 +225,8 @@ class TestInfectPerson(object):
 
 if __name__ == '__main__':
     
-    person = TestInfectPerson()
+    person = TestInfect()
     # load train dataset
-    person.saveDataset()
-    person.embeddingDataset()
+   #person.saveDataset()
+    #person.embeddingDataset()
     person.identifyPerson()
